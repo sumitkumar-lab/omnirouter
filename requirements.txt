@@ -1,3 +1,25 @@
 pydantic
 openai
 anthropic
+langchain-openai
+
+langchain 
+chromadb 
+tiktoken
+langchain-text-splitters 
+langchain-core 
+langchain-community
+langgraph
+
+setuptools
+
+# Free tier...
+langchain-groq 
+langchain-huggingface 
+sentence-transformers
+
+python-dotenv
+
+fastapi
+uvicorn
+-e .
