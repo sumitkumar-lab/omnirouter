@@ -1,20 +1,42 @@
 import os
 from typing import List
 from langchain_core.documents import Document
-from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
+
+# OpenAI embedding
+# from langchain_openai import OpenAIEmbeddings
+
+# Free local embedding
+from langchain_huggingface import HuggingFaceEmbeddings
+
+from dotenv import load_dotenv
+load_dotenv()
+
+# # Huggingface api key...
+# os.environ["HF_TOKEN"] = "hf_PWDT"
 
 # This is where our local database will be saved on your hard drive
 DB_DIRECTORY = "./chroma_db"
+
+def get_embeddings_model():
+    """Returns the active embedding model."""
+    # --- FREE PIPELINE ---
+    # This downloads a small, highly efficient open-source model to your machine.
+    print("Loading HuggingFace Embeddings...")
+    # api_key = os.getenv("HUGGINGFACE_API_KEY")
+    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    
+    # --- PAID PIPELINE (Uncomment when you have credits) ---
+    # We use OpenAI's embedding model here. It converts text to 1536-dimensional vectors.
+    # api_key = os.getenv("OPENAI_API_KEY")
+    # return OpenAIEmbeddings(api_key=api_key, model="text-embedding-3-small")
 
 def build_vector_store(chunks: List[Document], api_key: str):
     """
     Takes a list of chunked documents, embeds them, and saves them to a local Chroma database.
     """
-    print(f"Initializing embedding model...")
-    # We use OpenAI's embedding model here. It converts text to 1536-dimensional vectors.
-    embeddings = OpenAIEmbeddings(api_key=api_key, model="text-embedding-3-small")
-    
+    embeddings = get_embeddings_model()
+
     print(f"Embedding {len(chunks)} chunks and saving to {DB_DIRECTORY}...")
     
     # 1. Create the database
@@ -35,5 +57,5 @@ def get_vector_store(api_key: str):
     """
     Retrieves the existing database from the hard drive so we don't have to rebuild it every time.
     """
-    embeddings = OpenAIEmbeddings(api_key=api_key, model="text-embedding-3-small")
+    embeddings = get_embeddings_model()
     return Chroma(persist_directory=DB_DIRECTORY, embedding_function=embeddings)

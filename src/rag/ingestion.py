@@ -28,6 +28,7 @@ def chunk_document_text(raw_text: str):
         print(f"\n--- Chunk {i+1} ---")
         print(chunk.page_content)
 
+    return chunks
 # Let's test it with a sample "manual"
 if __name__ == "__main__":
     sample_manual = (
