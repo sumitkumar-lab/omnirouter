@@ -1,7 +1,8 @@
-# ⚡ OmniRouter: Enterprise Agent & Async LLM Routing Engine
+# ⚡ OmniRouter: Enterprise RAG Agent & Async LLM Routing Engine
 
 ![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![Pydantic Strict](https://img.shields.io/badge/pydantic-strict-green.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-Streaming-009688.svg)
 ![LangGraph](https://img.shields.io/badge/LangGraph-State_Machine-orange.svg)
 ![Status](https://img.shields.io/badge/status-production_ready-success.svg)
 
@@ -29,7 +30,7 @@ When building rigorous model evaluation dashboards or running large-scale ablati
 |  (Async / Await)  | ---- +---> [Anthropic Client] --> Returns Validated Object
 +-------------------+      |
                            +---> [Local VRAM Model] --> Returns Validated Object
-
+```
 
 ## **Second phase**
 An enterprise-grade AI architecture combining high-concurrency LLM routing, local Vector Database retrieval (RAG), and LangGraph-powered state machine agents.
@@ -39,44 +40,65 @@ Originally built to solve the synchronous bottleneck of multi-provider LLM evalu
 ## ✨ Core Capabilities
 
 * **Asynchronous Engine:** Built with `asyncio` to achieve maximum I/O throughput across OpenAI and Anthropic APIs.
+* **Strict Typing:** Powered by `Pydantic` to guardrail all API inputs and outputs against LLM hallucinations.
 * **Intelligent Failover:** Automatic exponential backoff and seamless cross-provider failover (e.g., if OpenAI rate-limits, it instantly routes to Claude 3.5).
 * **Enterprise RAG:** Implements semantic chunking and local Vector Storage (`ChromaDB`) to search massive documents without blowing up context windows or API budgets.
-* **Agentic Reasoning (LangGraph):** Moves beyond linear chains. Uses Directed Cyclic Graphs (DCG) and strict LLM Tool Calling to allow the agent to autonomously decide when to search databases or answer directly.
-* **Strict Typing:** Powered by `Pydantic` to guardrail all API inputs and outputs against LLM hallucinations.
+* **FastAPI Streaming Gateway:** Utilizes Server-Sent Events (SSE) to stream tokens directly to the client, optimizing Time-to-First-Token (TTFT) and eliminating perceived latency.
+* **Semantic Caching Layer:** Intercepts redundant queries using HuggingFace embeddings and a secondary ChromaDB cache, returning answers in <50ms without waking up the LLM.
+* **Agentic Reasoning (LangGraph):** Uses Directed Cyclic Graphs (DCG) and strict LLM Tool Calling, allowing the agent to autonomously decide when to search databases or fallback.
+* **Human-in-the-Loop (HITL):** Built-in state checkpointers pause execution before dangerous tool calls, awaiting explicit asynchronous approval via the API.
+* **Automated Evaluation (LLM-as-a-Judge):** Includes an automated testing pipeline that uses a secondary LLM with strict schemas to grade the primary agent on context relevance and hallucinations.
+
 
 ## 🏗 System Architecture Blueprint
 
 ```text
-                      [USER PROMPT]
-                            |
-                            v
-+=======================================================+
-|                 LANGGRAPH AGENT (The Brain)           |
-|                                                       |
-|  [State Machine] <---> [Intent Router Node]           |
-|                             |                         |
-|                    (LLM Tool Calling)                 |
-|                             |                         |
-|  [Direct Answer] <-----> [Vector DB Search Tool]      |
-+=======================================================+
+                      [CLIENT HTTP POST]
                               |
                               v
 +=======================================================+
-|                RAG PIPELINE (The Memory)              |
+|                 FASTAPI STREAMING LAYER               |
 |                                                       |
-|  [Recursive Chunking] -> [Embeddings] -> [ChromaDB]   |
+|  [Pydantic Validation] -> [Semantic Cache Check]      |
+|                               /             \         |
+|                     (Cache Hit)          (Cache Miss) |
+|                         /                     \       |
+|            [Stream Cached Answer]     [Start LangGraph]|
 +=======================================================+
-                              |
-                              v
+                                                |
+                                                v
 +=======================================================+
-|               OMNIROUTER (The Engine)                 |
+|             LANGGRAPH AGENT (The Brain)               |
 |                                                       |
-|  [Pydantic Validation] -> [Async Provider Routing]    |
-|  [Cost Estimation]     -> [Failover & Backoff Logic]  |
+|  [State Machine] <---> [Intent Router / LLM]          |
+|        |                        |                     |
+|  (HITL Pause)          (LLM Tool Calling)             |
+|        |                        |                     |
+|  [Resume API] <------> [Vector DB Search Tool]        |
 +=======================================================+
+                                                |
+                                                v
++=======================================================+
+|                 RAG MEMORY PIPELINE                   |
+|                                                       |
+|  [HuggingFace Embeddings] -> [Local ChromaDB]         |
++=======================================================+
+```
+## Repository Structure...
 
+omnirouter/
+├── src/
+│   ├── api/                 # FastAPI server, SSE streaming, Semantic Cache
+│   ├── agent/               # LangGraph state machine, nodes, and LLM tools
+│   ├── evaluation/          # LLM-as-a-Judge testing scripts (run_evals.py)
+│   └── rag/                 # Vector store and semantic ingestion logic
+├── chroma_db/               # Primary knowledge base (git-ignored)
+├── semantic_cache_db/       # Memory of past interactions (git-ignored)
+├── .env                     # Secure key vault (git-ignored)
+└── main.py                  # Entry point for the FastAPI server
 
 ## Quick Start 2-minutes
+
 ```bash
 git clone [https://github.com/YOUR_USERNAME/omnirouter.git](https://github.com/YOUR_USERNAME/omnirouter.git)
 cd omnirouter
@@ -85,6 +107,16 @@ python -m venv .venv
 pip install -r requirements.txt
 
 ```
+### Create a .env file in the root directory and add you API keys:
+
+GROQ_API_KEY="gsk_..."
+
+### Launch the API gateway
+```bash
+
+uvicorn src.api.server:app --reload
+```
+Navigate to http://127.0.0.1:8000/docs to interact with the Swagger UI, or use the included client.py to test terminal streaming.
 
 ## 🤝 Contributing
 Please see CONTRIBUTING.md for details on adding new providers or improving the async routing logic.
