@@ -29,3 +29,4 @@ def chat_with_agent(query: str):
 if __name__ == "__main__":
     # Make sure your FastAPI server is running in another terminal!
     chat_with_agent("What is OmniRouter?")
+    # chat_with_agent("Can you explain OmniRouter ?")

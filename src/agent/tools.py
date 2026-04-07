@@ -27,7 +27,7 @@ def search_documentation(query: str) -> str:
     print(f"\n--- [TOOL EXECUTION] Searching Vector DB for: '{query}' ---")
     
     # In production, ensure your API key is loaded securely
-    api_key = os.getenv("OPENAI_API_KEY", "YOUR_REAL_OPENAI_API_KEY") 
+    api_key = os.getenv("HF_TOKEN") 
     
     try:
         db = get_vector_store(api_key)
@@ -43,6 +43,8 @@ def search_documentation(query: str) -> str:
         return combined_text
         
     except Exception as e:
+        # FIXED: Print the error to the server terminal so we can see it!
+        print(f"\n🚨 [TOOL CRASHED]: {str(e)}")
         return f"Error executing search: {str(e)}"
     
 
