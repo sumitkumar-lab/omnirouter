@@ -13,6 +13,9 @@ from src.agent.tools import search_documentation
 from src.agent.tools import search_documentation
 # Fix the infinite loop using system prompt(Guardrail)
 from langchain_core.messages import SystemMessage
+# Human in the loop using LangGraphs checkpointers...
+from langgraph.checkpoint.memory import MemorySaver
+
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -73,7 +76,9 @@ def chatbot_node(state: AgentState):
 # It reads the "ToolCall" message, runs our Python function, and returns a "ToolMessage".
 tool_node = ToolNode(tools=tools)
 
-# 4. COMPILE THE GRAPH
+# =============================================
+# 4. COMPILE THE GRAPH with human in the loop...
+# =============================================
 workflow = StateGraph(AgentState)
 
 # Add our two worker nodes
@@ -82,28 +87,30 @@ workflow.add_node("tools", tool_node)
 
 # Set the entry point
 workflow.add_edge(START, "chatbot")
-
 # 5. THE MAGIC ROUTING
 # 'tools_condition' is a built-in LangGraph edge.
 # It looks at the last message from the chatbot. 
 # If it has a tool call, it routes to "tools". If it's just text, it routes to END.
-workflow.add_conditional_edges(
-    "chatbot",
-    tools_condition, 
-)
-
+workflow.add_conditional_edges("chatbot", tools_condition)
 # After a tool finishes running, ALWAYS loop back to the chatbot 
 # so it can read the database results and formulate a final answer!
 workflow.add_edge("tools", "chatbot")
 
-app = workflow.compile()
+# Initialize the short-term memory vault
+memory = MemorySaver()
+
+# Compile with the memory and the breakpoint!
+app = workflow.compile(
+    checkpointer=memory,
+    interrupt_before=["tools"]  # tell the graph to pause before executing this node.
+)
 
 
 from langchain_core.messages import HumanMessage
 
 if __name__ == "__main__":
     # Ensure your API key is available
-    os.environ["OPENAI_API_KEY"] = "YOUR_REAL_OPENAI_API_KEY"
+    # os.environ["OPENAI_API_KEY"] = "YOUR_REAL_OPENAI_API_KEY"
     
     print("========== AGENT TEST ==========")
     initial_state = {
