@@ -85,7 +85,7 @@ Originally built to solve the synchronous bottleneck of multi-provider LLM evalu
 +=======================================================+
 ```
 ## Repository Structure...
-
+```text
 omnirouter/
 ├── src/
 │   ├── api/                 # FastAPI server, SSE streaming, Semantic Cache
@@ -96,6 +96,7 @@ omnirouter/
 ├── semantic_cache_db/       # Memory of past interactions (git-ignored)
 ├── .env                     # Secure key vault (git-ignored)
 └── main.py                  # Entry point for the FastAPI server
+```
 
 ## Quick Start 2-minutes
 
