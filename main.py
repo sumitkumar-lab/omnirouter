@@ -7,8 +7,8 @@ async def main():
     # 1. Initialize the router with your keys
     # In production, NEVER hardcode keys. Use os.getenv("OPENAI_API_KEY")
     api_keys = {
-        "openai": "sk-proj-yp2fl1bFdw0", # Put a fake key here to test the error loop
-        "anthropic": "sk-ant-fake-anthropic-key-456"
+        "openai": "sk-proj-yp2fl1bF", # Put a fake key here to test the error loop
+        "anthropic": "sk-ant-fake-anthropic-key-"
     }
     
     router = OmniRouter(api_keys=api_keys)
@@ -44,3 +44,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+# import sys
+# print("\n--- Diagnostic Check ---")
+# print(f"Executing Python path: {sys.executable}")
