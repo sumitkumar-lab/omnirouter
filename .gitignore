@@ -2,4 +2,5 @@
 .env
 
 chroma_db/
+semantic_cache_db/
 __pycache__/
