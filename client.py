@@ -2,7 +2,8 @@ import requests
 import json
 
 def chat_with_agent(query: str):
-    url = "http://127.0.0.1:8000/chat/stream"
+    # url = "http://127.0.0.1:8000/chat/stream"
+    url = "https://YOUR_USERNAME-omnirouter-api.hf.space/chat/stream"
     payload = {"query": query}
     
     print(f"\nYou: {query}")
