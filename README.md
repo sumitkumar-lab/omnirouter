@@ -43,9 +43,9 @@ Originally built to solve the synchronous bottleneck of multi-provider LLM evalu
 * **Strict Typing:** Powered by `Pydantic` to guardrail all API inputs and outputs against LLM hallucinations.
 * **Intelligent Failover:** Automatic exponential backoff and seamless cross-provider failover (e.g., if OpenAI rate-limits, it instantly routes to Claude 3.5).
 * **Enterprise RAG:** Implements semantic chunking and local Vector Storage (`ChromaDB`) to search massive documents without blowing up context windows or API budgets.
-* **FastAPI Streaming Gateway:** Utilizes Server-Sent Events (SSE) to stream tokens directly to the client, optimizing Time-to-First-Token (TTFT) and eliminating perceived latency.
+* **FastAPI Streaming Gateway:** Utilises Server-Sent Events (SSE) to stream tokens directly to the client, optimising Time-to-First-Token (TTFT) and eliminating perceived latency.
 * **Semantic Caching Layer:** Intercepts redundant queries using HuggingFace embeddings and a secondary ChromaDB cache, returning answers in <50ms without waking up the LLM.
-* **Agentic Reasoning (LangGraph):** Uses Directed Cyclic Graphs (DCG) and strict LLM Tool Calling, allowing the agent to autonomously decide when to search databases or fallback.
+* **Agentic Reasoning (LangGraph):** Uses Directed Acyclic Graphs (DAG) and strict LLM Tool Calling, allowing the agent to autonomously decide when to search databases or fallback.
 * **Human-in-the-Loop (HITL):** Built-in state checkpointers pause execution before dangerous tool calls, awaiting explicit asynchronous approval via the API.
 * **Automated Evaluation (LLM-as-a-Judge):** Includes an automated testing pipeline that uses a secondary LLM with strict schemas to grade the primary agent on context relevance and hallucinations.
 
