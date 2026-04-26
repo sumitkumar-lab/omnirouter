@@ -4,3 +4,12 @@
 chroma_db/
 semantic_cache_db/
 __pycache__/
+rag_metadata.db
+
+corpus/*
+!corpus/README.md
+
+data_lake/*
+!data_lake/README.md
+!data_lake/source_name/
+!data_lake/source_name/.gitkeep

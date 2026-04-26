@@ -9,6 +9,7 @@ tiktoken
 langchain-text-splitters 
 langchain-core 
 langchain-community
+langchain-chroma
 langgraph
 
 setuptools
@@ -17,6 +18,7 @@ setuptools
 langchain-groq 
 langchain-huggingface 
 sentence-transformers
+pypdf
 
 python-dotenv
 
@@ -24,3 +26,11 @@ fastapi
 uvicorn
 
 requests
+sqlalchemy
+faiss-cpu
+psycopg[binary]
+
+# search package
+duckduckgo-search
+langchain-experimental
+-e .

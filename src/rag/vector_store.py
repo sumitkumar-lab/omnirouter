@@ -1,61 +1,48 @@
-import os
-from typing import List
+from __future__ import annotations
+
+import shutil
+from pathlib import Path
+from typing import Any
+
 from langchain_core.documents import Document
-from langchain_community.vectorstores import Chroma
 
-# OpenAI embedding
-# from langchain_openai import OpenAIEmbeddings
+from src.rag.embeddings import get_embeddings_model
+from src.rag.index_store import build_faiss_index, load_faiss_index
+from src.rag.metadata_store import MetadataStore
+from src.rag.pipeline import sync_corpus
+from src.rag.settings import RagSettings, get_rag_settings
 
-# Free local embedding
-from langchain_huggingface import HuggingFaceEmbeddings
 
-from dotenv import load_dotenv
-load_dotenv()
+class EmptyVectorStore:
+    def similarity_search(self, query: str, k: int = 4) -> list[Document]:
+        return []
 
-# # Huggingface api key...
-# os.environ["HF_TOKEN"] = "hf_PWDT"
+    def as_retriever(self, search_kwargs: dict[str, Any] | None = None):
+        from src.rag.retrieval import EmptyRetriever
 
-# This is where our local database will be saved on your hard drive
-DB_DIRECTORY = "./chroma_db"
+        return EmptyRetriever()
 
-def get_embeddings_model():
-    """Returns the active embedding model."""
-    # --- FREE PIPELINE ---
-    # This downloads a small, highly efficient open-source model to your machine.
-    print("Loading HuggingFace Embeddings...")
-    # api_key = os.getenv("HUGGINGFACE_API_KEY")
-    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    
-    # --- PAID PIPELINE (Uncomment when you have credits) ---
-    # We use OpenAI's embedding model here. It converts text to 1536-dimensional vectors.
-    # api_key = os.getenv("OPENAI_API_KEY")
-    # return OpenAIEmbeddings(api_key=api_key, model="text-embedding-3-small")
 
-def build_vector_store(chunks: List[Document], api_key: str):
-    """
-    Takes a list of chunked documents, embeds them, and saves them to a local Chroma database.
-    """
-    embeddings = get_embeddings_model()
+def build_vector_store(chunks: list[Document], api_key: str | None = None, settings: RagSettings | None = None):
+    settings = settings or get_rag_settings()
+    manual_index_path = settings.corpus_dir / "manual_build" / "faiss_index"
+    if manual_index_path.parent.exists():
+        shutil.rmtree(manual_index_path.parent)
+    if not chunks:
+        return EmptyVectorStore()
+    build_faiss_index(chunks, get_embeddings_model(settings), manual_index_path)
+    return load_faiss_index(manual_index_path, get_embeddings_model(settings))
 
-    print(f"Embedding {len(chunks)} chunks and saving to {DB_DIRECTORY}...")
-    
-    # 1. Create the database
-    # 2. Embed all the chunks
-    # 3. Save it to the DB_DIRECTORY
-    vector_store = Chroma.from_documents(
-        documents=chunks,
-        embedding=embeddings,
-        persist_directory=DB_DIRECTORY
-    )
-    
-    # Force the database to save to disk
-    vector_store.persist()
-    print("Database successfully built and saved to disk!")
-    return vector_store
 
-def get_vector_store(api_key: str):
-    """
-    Retrieves the existing database from the hard drive so we don't have to rebuild it every time.
-    """
-    embeddings = get_embeddings_model()
-    return Chroma(persist_directory=DB_DIRECTORY, embedding_function=embeddings)
+def get_vector_store(api_key: str | None = None, auto_sync: bool = True, settings: RagSettings | None = None):
+    settings = settings or get_rag_settings()
+    if auto_sync:
+        sync_corpus(settings=settings)
+
+    store = MetadataStore(settings.metadata_db_url)
+    store.init_db()
+    latest_index = store.get_latest_index()
+    if latest_index is None:
+        return EmptyVectorStore()
+
+    return load_faiss_index(Path(latest_index.index_path), get_embeddings_model(settings))

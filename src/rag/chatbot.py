@@ -1,22 +1,40 @@
+import os
+
 from langchain_openai import ChatOpenAI
-from langchain.chains import create_history_aware_retriever, create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
-# from langchain.chains.history_aware_retriever import create_history_aware_retriever
-# from langchain.chains.retrieval import create_retrieval_chain
-# from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_groq import ChatGroq
+from langchain_classic.chains import (
+    create_history_aware_retriever,
+    create_retrieval_chain,
+)
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from dotenv import load_dotenv
 
-from src.rag.vector_store import get_vector_store
+from src.rag.retrieval import get_document_retriever
 
-def build_doc_assistant(api_key: str):
+load_dotenv()
+
+
+def build_doc_assistant(api_key: str | None = None):
     """
     Constructs the conversational RAG pipeline.
     """
-    # 1. Initialize our LLM (temperature=0 because we want factual answers, not creative ones)
-    llm = ChatOpenAI(api_key=api_key, model="gpt-3.5-turbo", temperature=0)
+    openai_api_key = api_key or os.getenv("OPENAI_API_KEY")
+    groq_api_key = os.getenv("GROQ_API_KEY")
+
+    # Prefer OpenAI when configured, otherwise fall back to Groq so the CLI can
+    # still run in environments where only a Groq key is available.
+    if openai_api_key:
+        llm = ChatOpenAI(api_key=openai_api_key, model="gpt-3.5-turbo", temperature=0)
+    elif groq_api_key:
+        llm = ChatGroq(api_key=groq_api_key, model="llama-3.1-8b-instant", temperature=0)
+    else:
+        raise ValueError(
+            "No chat model API key found. Set OPENAI_API_KEY or GROQ_API_KEY in the environment."
+        )
     
     # 2. Connect to our Vector DB (k=2 means return the top 2 most relevant chunks)
-    retriever = get_vector_store(api_key).as_retriever(search_kwargs={"k": 2})
+    retriever = get_document_retriever()
 
     # ==========================================
     # STEP 1: The "Question Reformulation" Prompt
