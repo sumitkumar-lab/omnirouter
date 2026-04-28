@@ -4,6 +4,8 @@
 chroma_db/
 semantic_cache_db/
 __pycache__/
+*.pyc
+src.egg-info/
 rag_metadata.db
 
 corpus/*
@@ -11,5 +13,4 @@ corpus/*
 
 data_lake/*
 !data_lake/README.md
-!data_lake/source_name/
-!data_lake/source_name/.gitkeep
+company.db

@@ -91,11 +91,10 @@ class MetadataStore:
             session.flush()
 
             for relative_path, metadata in manifest.items():
-                source_name = relative_path.split("/", 1)[0] if "/" in relative_path else "root"
                 session.add(
                     SourceDocument(
                         corpus_version_id=corpus_version.id,
-                        source_name=source_name,
+                        source_name=_source_name_from_relative_path(relative_path),
                         relative_path=relative_path,
                         checksum=metadata["sha256"],
                         size_bytes=metadata["size"],
@@ -116,3 +115,13 @@ class MetadataStore:
             session.commit()
             session.refresh(corpus_version)
             return corpus_version
+
+
+def _source_name_from_relative_path(relative_path: str) -> str:
+    path = Path(relative_path)
+    parts = path.parts
+    if len(parts) >= 3 and parts[0] == "data_lake":
+        return parts[1]
+    if len(parts) == 2 and parts[0] == "data_lake":
+        return path.stem
+    return path.stem or "root"

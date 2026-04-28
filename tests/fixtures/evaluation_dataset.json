@@ -1,0 +1,14 @@
+[
+  {
+    "query": "What is OmniRouter?",
+    "ground_truth_answer": "OmniRouter routes LLM requests.",
+    "relevant_doc_ids": ["doc-1", "doc-3"],
+    "expected_tools": ["search_documentation"],
+    "max_steps": 4
+  },
+  {
+    "query": "What storage layer is used?",
+    "ground_truth_answer": "The system uses a FAISS index and relational metadata storage.",
+    "relevant_doc_ids": ["doc-2"]
+  }
+]

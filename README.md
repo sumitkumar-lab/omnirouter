@@ -1,123 +1,284 @@
-# ⚡ OmniRouter: Enterprise RAG Agent & Async LLM Routing Engine
+# OmniRouter
 
-![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)
-![Pydantic Strict](https://img.shields.io/badge/pydantic-strict-green.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-Streaming-009688.svg)
-![LangGraph](https://img.shields.io/badge/LangGraph-State_Machine-orange.svg)
-![Status](https://img.shields.io/badge/status-production_ready-success.svg)
+OmniRouter is evolving into a single-agent, multi-worker AI Research Scientist. It ingests research papers from one source folder, builds a local FAISS retrieval index, and runs a LangGraph swarm for literature review, mathematical checking, and PyTorch experiment generation.
 
-## **First phase**
-A lightning-fast, highly concurrent LLM routing engine designed for production AI systems. 
+## What It Does
 
-When building rigorous model evaluation dashboards or running large-scale ablation studies, you cannot rely on synchronous, single-provider API calls. **OmniRouter** standardizes inputs and outputs across OpenAI, Anthropic, and local quantized models using an unbreakable Async/Abstract Base Class architecture.
+- Ingests files from `data_lake/`
+- Supports PDFs, Markdown, text, CSV, and JSON
+- Prefers Nougat/Marker-style Markdown sidecars for research PDFs
+- Chunks Markdown by headers instead of raw character count
+- Embeds chunks with HuggingFace embeddings
+- Stores vectors in local FAISS indexes under `corpus/`
+- Tracks corpus/index metadata in `rag_metadata.db`
+- Serves a LangGraph research swarm through FastAPI streaming
+- Includes a zero-build browser UI that can be served locally or deployed with GitHub Pages
 
-## ✨ Why This Exists (The Problem)
-[cite_start]Developers waste countless hours rewriting parsing logic for different LLM providers[cite: 124]. Furthermore, synchronous API calls bottleneck performance when running multi-agent workflows or bulk evaluations.
-
-**The Solution:**
-* [cite_start]**100% Asynchronous:** Built from the ground up with `asyncio` for maximum I/O throughput[cite: 72].
-* **Strict Typing:** Powered by `Pydantic`. [cite_start]If a model hallucinates a bad schema, the engine catches it before it pollutes your database[cite: 73].
-* [cite_start]**Provider Agnostic:** Swap between GPT-4, Claude 3, or a local Llama 3 instance with zero changes to your core application logic[cite: 102, 107, 113].
-
-## 🏗 Architecture Blueprint
+## Architecture
 
 ```text
-[User Prompt] + [Pydantic Schema]
+data_lake/
+  paper.pdf
+  paper.md              optional OCR sidecar from Nougat/Marker
+  notes.txt
         |
         v
-+-------------------+      +---> [OpenAI Client]    --> Returns Validated Object
-|  Provider Router  | ---- |
-|  (Async / Await)  | ---- +---> [Anthropic Client] --> Returns Validated Object
-+-------------------+      |
-                           +---> [Local VRAM Model] --> Returns Validated Object
+src.rag.ingestion       loads docs, prefers OCR Markdown, chunks by headers
+        |
+        v
+src.rag.pipeline        versions corpus snapshots and builds FAISS
+        |
+        v
+src.agent.graph         LangGraph AI Research Scientist swarm
+        |
+        +--> Orchestrator
+        +--> Literature Reviewer
+        +--> Mathematician
+        +--> Experimentalist
 ```
 
-## **Second phase**
-An enterprise-grade AI architecture combining high-concurrency LLM routing, local Vector Database retrieval (RAG), and LangGraph-powered state machine agents.
-
-Originally built to solve the synchronous bottleneck of multi-provider LLM evaluations, **OmniRouter** has evolved into a complete toolkit for building autonomous, fault-tolerant research assistants capable of reading 1,000+ page technical manuals.
-
-## ✨ Core Capabilities
-
-* **Asynchronous Engine:** Built with `asyncio` to achieve maximum I/O throughput across OpenAI and Anthropic APIs.
-* **Strict Typing:** Powered by `Pydantic` to guardrail all API inputs and outputs against LLM hallucinations.
-* **Intelligent Failover:** Automatic exponential backoff and seamless cross-provider failover (e.g., if OpenAI rate-limits, it instantly routes to Claude 3.5).
-* **Enterprise RAG:** Implements semantic chunking and local Vector Storage (`ChromaDB`) to search massive documents without blowing up context windows or API budgets.
-* **FastAPI Streaming Gateway:** Utilises Server-Sent Events (SSE) to stream tokens directly to the client, optimising Time-to-First-Token (TTFT) and eliminating perceived latency.
-* **Semantic Caching Layer:** Intercepts redundant queries using HuggingFace embeddings and a secondary ChromaDB cache, returning answers in <50ms without waking up the LLM.
-* **Agentic Reasoning (LangGraph):** Uses Directed Acyclic Graphs (DAG) and strict LLM Tool Calling, allowing the agent to autonomously decide when to search databases or fallback.
-* **Human-in-the-Loop (HITL):** Built-in state checkpointers pause execution before dangerous tool calls, awaiting explicit asynchronous approval via the API.
-* **Automated Evaluation (LLM-as-a-Judge):** Includes an automated testing pipeline that uses a secondary LLM with strict schemas to grade the primary agent on context relevance and hallucinations.
-
-
-## 🏗 System Architecture Blueprint
+## Main Folders
 
 ```text
-                      [CLIENT HTTP POST]
-                              |
-                              v
-+=======================================================+
-|                 FASTAPI STREAMING LAYER               |
-|                                                       |
-|  [Pydantic Validation] -> [Semantic Cache Check]      |
-|                               /             \         |
-|                     (Cache Hit)          (Cache Miss) |
-|                         /                     \       |
-|            [Stream Cached Answer]     [Start LangGraph]|
-+=======================================================+
-                                                |
-                                                v
-+=======================================================+
-|             LANGGRAPH AGENT (The Brain)               |
-|                                                       |
-|  [State Machine] <---> [Intent Router / LLM]          |
-|        |                        |                     |
-|  (HITL Pause)          (LLM Tool Calling)             |
-|        |                        |                     |
-|  [Resume API] <------> [Vector DB Search Tool]        |
-+=======================================================+
-                                                |
-                                                v
-+=======================================================+
-|                 RAG MEMORY PIPELINE                   |
-|                                                       |
-|  [HuggingFace Embeddings] -> [Local ChromaDB]         |
-+=======================================================+
-```
-## Repository Structure...
-```text
-omnirouter/
-├── src/
-│   ├── api/                 # FastAPI server, SSE streaming, Semantic Cache
-│   ├── agent/               # LangGraph state machine, nodes, and LLM tools
-│   ├── evaluation/          # LLM-as-a-Judge testing scripts (run_evals.py)
-│   └── rag/                 # Vector store and semantic ingestion logic
-├── chroma_db/               # Primary knowledge base (git-ignored)
-├── semantic_cache_db/       # Memory of past interactions (git-ignored)
-├── .env                     # Secure key vault (git-ignored)
-└── main.py                  # Entry point for the FastAPI server
+src/
+  agent/        LangGraph swarm and tools
+  api/          FastAPI streaming endpoint and semantic cache
+  evaluation/   agent/RAG evaluation utilities
+  rag/          ingestion, corpus sync, FAISS retrieval, metadata store
+data_lake/      upload research papers and notes here
+corpus/         generated versioned FAISS indexes and chunk snapshots
+tests/          focused regression tests
+web/            static browser UI for the research agent
+.github/        GitHub Pages deployment workflow
 ```
 
-## Quick Start 2-minutes
+## Setup
 
-```bash
-git clone [https://github.com/YOUR_USERNAME/omnirouter.git](https://github.com/YOUR_USERNAME/omnirouter.git)
-cd omnirouter
+Windows PowerShell:
+
+```powershell
 python -m venv .venv
-# Windows: .venv\Scripts\activate | Mac/Linux: source .venv/bin/activate
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
 ```
-### Create a .env file in the root directory and add you API keys:
 
-GROQ_API_KEY="gsk_..."
+Create `.env` in the project root:
 
-### Launch the API gateway
-```bash
-
-uvicorn src.api.server:app --reload
+```env
+GROQ_API_KEY=gsk_...
+OPENAI_API_KEY=sk-...              # optional, used by chatbot fallback paths
+RESEARCH_POSTGRES_DSN=postgresql://user:password@localhost:5432/research  # optional
 ```
-Navigate to http://127.0.0.1:8000/docs to interact with the Swagger UI, or use the included client.py to test terminal streaming.
 
-## 🤝 Contributing
-Please see CONTRIBUTING.md for details on adding new providers or improving the async routing logic.
+The LangGraph swarm currently uses Groq by default in `src/agent/graph.py`, so `GROQ_API_KEY` is the key you need for the agent.
+
+## Add Research Papers
+
+You can upload files through the browser UI or put them directly in `data_lake/`.
+
+Browser upload:
+
+1. Start the API.
+2. Open `http://127.0.0.1:8000`.
+3. Use the `Documents` panel.
+4. Select `.pdf`, `.md`, `.markdown`, `.txt`, `.csv`, or `.json` files.
+5. Keep `Sync after upload` enabled to rebuild the FAISS corpus immediately.
+
+Filesystem upload:
+
+```text
+data_lake/
+  chinchilla_train.pdf
+  chinchilla_train.md
+  omnirouter_facts.txt
+```
+
+For math-heavy papers, generate Markdown with Nougat or Marker and place it next to the PDF using the same filename:
+
+```text
+data_lake/
+  my_paper.pdf
+  my_paper.md
+```
+
+When both exist, ingestion uses `my_paper.md` as the text source but keeps metadata tied to `my_paper.pdf`. This preserves LaTeX blocks and lets the pipeline chunk by Markdown headers such as `Methodology`, `Proofs`, `Experiments`, and `Appendix`.
+
+Upload through the API:
+
+```powershell
+curl.exe -X POST http://127.0.0.1:8000/documents/upload `
+  -F "files=@data_lake/chinchilla_train.pdf" `
+  -F "files=@data_lake/chinchilla_train.md" `
+  -F "sync=true"
+```
+
+List uploaded documents:
+
+```powershell
+curl.exe http://127.0.0.1:8000/documents
+```
+
+## Build Or Refresh The FAISS Corpus
+
+The app auto-syncs when retrieval runs, but you can force a rebuild:
+
+```powershell
+.\.venv\Scripts\python.exe -c "from src.rag.pipeline import sync_corpus; print(sync_corpus(force=True))"
+```
+
+Inspect the generated corpus:
+
+```text
+corpus/
+  version_v*/
+    manifest.json
+    chunks.jsonl
+    faiss_index/
+```
+
+Run the ingestion smoke script:
+
+```powershell
+.\.venv\Scripts\python.exe tests\ingestion_main.py
+```
+
+## Run The API
+
+Start the FastAPI streaming server:
+
+```powershell
+.\.venv\Scripts\uvicorn.exe src.api.server:app --reload
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000
+```
+
+API docs:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Streaming endpoint:
+
+```text
+POST /chat/stream
+Body: {"query": "What is Chinchilla training?"}
+```
+
+Document endpoints:
+
+```text
+GET  /documents
+POST /documents/upload
+```
+
+Run the terminal client in another shell:
+
+```powershell
+.\.venv\Scripts\python.exe client.py
+```
+
+## Run The Web UI
+
+The web UI is in `web/` and needs no build step.
+
+Local backend plus local UI:
+
+```powershell
+.\.venv\Scripts\uvicorn.exe src.api.server:app --reload
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000
+```
+
+GitHub Pages UI:
+
+1. Push the repo to GitHub.
+2. In the GitHub repository, open `Settings -> Pages`.
+3. Set the source to `GitHub Actions`.
+4. Push changes to `main`, or manually run `Deploy web UI to GitHub Pages`.
+5. Open the Pages URL and set `API base URL` to your running backend, for example:
+
+```text
+http://127.0.0.1:8000
+```
+
+For a public GitHub Pages site, the browser can only call an API URL that is reachable from your browser. During local development, keep the FastAPI server running on your machine. For a public deployment, host the FastAPI backend on a service such as Render, Railway, Fly.io, Hugging Face Spaces, or your own server, then paste that backend URL into the web UI.
+
+## Use The LangGraph Swarm Directly
+
+Basic invoke:
+
+```powershell
+.\.venv\Scripts\python.exe -c "from langchain_core.messages import HumanMessage; from src.agent.graph import app; state={'messages':[HumanMessage(content='What is Chinchilla?')]}; print(app.invoke(state, {'configurable': {'thread_id': 'manual'}})['messages'][-1].content)"
+```
+
+The orchestrator routes to:
+
+- `literature_reviewer`: local FAISS corpus, metadata, and DuckDuckGo
+- `mathematician`: secure Python REPL with `sympy` and `numpy`
+- `experimentalist`: raw PyTorch ablation scripts
+
+Example prompts:
+
+```text
+Summarize the Chinchilla paper from the uploaded corpus.
+Derive and check the gradient of x**3 + 2*x with sympy.
+Write a PyTorch ablation script for comparing two transformer width settings.
+```
+
+## Agent Tools
+
+Defined in `src/agent/tools.py`:
+
+- `search_documentation`: searches the single local `data_lake` research corpus
+- `query_research_corpus`: alias for local FAISS research search
+- `query_research_metadata`: reads local corpus/index metadata
+- `query_postgres_metadata`: optional read-only PostgreSQL metadata queries
+- `search_web`: DuckDuckGo search for missing/current literature
+- `execute_python_code`: secure math REPL with `sympy` and `numpy`
+- `generate_pytorch_ablation_script`: produces raw PyTorch ablation scripts
+
+The Python tool blocks filesystem, network, subprocess, dynamic imports, and unsafe calls such as `eval`, `exec`, `open`, and `__import__`.
+
+## Run Tests
+
+Focused RAG and agent tests:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests\test_ingestion_pipeline.py tests\test_retrieval.py tests\test_agent_tools.py tests\test_api_server.py tests\test_run_evals.py
+```
+
+Full test suite:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+```
+
+## Evaluation
+
+Run a real-agent evaluation sample:
+
+```powershell
+.\.venv\Scripts\python.exe -m src.evaluation.run_evals
+```
+
+Run evaluation from JSON fixtures:
+
+```powershell
+.\.venv\Scripts\python.exe -m src.evaluation.cli --dataset tests\fixtures\evaluation_dataset.json --records tests\fixtures\evaluation_records.json --output evaluation_report.json
+```
+
+## Notes
+
+- `data_lake/source_name/...` is obsolete. Upload directly into `data_lake/`.
+- `corpus/`, `rag_metadata.db`, `chroma_db/`, and `semantic_cache_db/` are generated runtime artifacts.
+- PostgreSQL is optional at runtime unless you want the explicit `query_postgres_metadata` tool. Local corpus metadata works through `rag_metadata.db`.
+- The old provider router demo still exists in `main.py`, but the current research-scientist path is the FastAPI/LangGraph/RAG flow described above.

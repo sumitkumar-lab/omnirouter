@@ -1,53 +1,93 @@
-from langchain_core.messages import HumanMessage, ToolMessage, AIMessage
+from __future__ import annotations
 
-# Import your real compiled agent and your real judge
-from src.agent.graph import app
-from src.evaluation.judge import check_hallucination
+from pathlib import Path
 
-def evaluate_real_agent(query: str):
-    print(f"\n==================================================")
-    print(f"🚀 RUNNING REAL AGENT EVALUATION")
-    print(f"Query: '{query}'")
-    print(f"==================================================")
-    
-    # 1. Trigger the Real Agent
-    initial_state = {"messages": [HumanMessage(content=query)]}
-    config = {"configurable": {"thread_id": "automated_eval_run_1"}}
-    
-    print("\n🤖 Agent is thinking and searching...")
-    # We use .invoke() here because we don't need streaming for a backend test
-    final_state = app.invoke(initial_state, config) 
-    
-    # 2. Extract the Dynamic Data from the State Machine's Memory
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
+from src.evaluation.orchestrator import EvaluationOrchestrator
+from src.evaluation.schemas import AgentTraceStep, EvaluationSample, QueryExecutionRecord, RetrievedDocument
+
+
+def extract_evaluation_payload(final_state: dict) -> tuple[str, str]:
     retrieved_context = ""
     final_answer = ""
-    
+
     for msg in final_state["messages"]:
-        # Find the exact text the ChromaDB tool returned
         if isinstance(msg, ToolMessage):
             retrieved_context += msg.content + "\n"
-        # Find the final answer the Agent generated
         elif isinstance(msg, AIMessage) and msg.content:
             final_answer = msg.content
-            
-    if not retrieved_context:
-        print("⚠️ Agent did not use the database. Cannot run Hallucination check.")
-        return
 
-    # 3. Pass the dynamic data to the Judge
-    result = check_hallucination(context=retrieved_context, answer=final_answer)
-    
-    # 4. Print the final Evaluation Report
-    print(f"\n📊 EVALUATION REPORT")
-    print(f"Score: {result.score} / 1")
-    if result.score == 1:
-        print("✅ PASS: Answer is completely grounded in the database.")
-    else:
-        print("❌ FAIL: Hallucination detected!")
-        
-    print(f"Judge's Reasoning: {result.reasoning}")
-    print(f"==================================================\n")
+    return retrieved_context, final_answer
+
+
+def build_execution_record(
+    sample: EvaluationSample,
+    final_state: dict,
+    retrieved_docs: list[RetrievedDocument],
+    reranked_docs: list[RetrievedDocument] | None = None,
+    trace: list[AgentTraceStep] | None = None,
+) -> QueryExecutionRecord:
+    retrieved_context, final_answer = extract_evaluation_payload(final_state)
+    return QueryExecutionRecord(
+        sample=sample,
+        retrieved_docs=retrieved_docs,
+        reranked_docs=reranked_docs or retrieved_docs,
+        final_answer=final_answer,
+        retrieved_context=retrieved_context,
+        trace=trace or [],
+    )
+
+
+def evaluate_real_agent(
+    query: str,
+    relevant_doc_ids: list[str] | None = None,
+    ground_truth_answer: str = "",
+    agent_app=None,
+    orchestrator: EvaluationOrchestrator | None = None,
+    thread_id: str = "automated_eval_run_1",
+):
+    if agent_app is None:
+        from src.agent.graph import app as default_app
+
+        agent_app = default_app
+
+    sample = EvaluationSample(
+        query=query,
+        ground_truth_answer=ground_truth_answer,
+        relevant_doc_ids=relevant_doc_ids or [],
+    )
+    initial_state = {"messages": [HumanMessage(content=query)]}
+    config = {"configurable": {"thread_id": thread_id}}
+    final_state = agent_app.invoke(initial_state, config)
+    retrieved_context, final_answer = extract_evaluation_payload(final_state)
+
+    tool_messages = [msg for msg in final_state["messages"] if isinstance(msg, ToolMessage)]
+    retrieved_docs = [
+        RetrievedDocument(doc_id=f"tool_doc_{index}", content=msg.content)
+        for index, msg in enumerate(tool_messages, start=1)
+    ]
+    trace = [
+        AgentTraceStep(step_id=index, kind="tool" if isinstance(msg, ToolMessage) else "reasoning", content=str(msg))
+        for index, msg in enumerate(final_state["messages"], start=1)
+    ]
+
+    record = QueryExecutionRecord(
+        sample=sample,
+        retrieved_docs=retrieved_docs,
+        reranked_docs=retrieved_docs,
+        final_answer=final_answer,
+        retrieved_context=retrieved_context,
+        trace=trace,
+    )
+
+    orchestrator = orchestrator or EvaluationOrchestrator()
+    return orchestrator.evaluate_records([record], output_path=None)
+
 
 if __name__ == "__main__":
-    # Test our agent with a real query!
-    evaluate_real_agent("What is OmniRouter and what does it do?")
+    report = evaluate_real_agent(
+        query="What is OmniRouter and what does it do?",
+        ground_truth_answer="OmniRouter routes LLM requests and supports retrieval workflows.",
+    )
+    print(report.summary.model_dump())

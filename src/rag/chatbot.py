@@ -7,6 +7,7 @@ from langchain_classic.chains import (
     create_retrieval_chain,
 )
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import PromptTemplate
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from dotenv import load_dotenv
 
@@ -60,9 +61,10 @@ def build_doc_assistant(api_key: str | None = None):
     # ==========================================
     system_prompt = (
         "You are an elite AI Engineering Assistant. "
-        "Use the following pieces of retrieved context to answer the question. "
+        "Use the following retrieved document excerpts to answer the question in natural language. "
+        "Ignore unrelated numeric tables, chart labels, formulas, and extraction noise unless the user asks for them. "
         "If the answer is not contained in the context, say 'I don't know based on the documentation.' "
-        "Do not make up an answer. Keep it concise.\n\n"
+        "Do not make up an answer. Keep it concise and do not repeat tokens or numbers.\n\n"
         "Context: {context}"
     )
     qa_prompt = ChatPromptTemplate.from_messages([
@@ -72,7 +74,15 @@ def build_doc_assistant(api_key: str | None = None):
     ])
     
     # This chain handles injecting the retrieved chunks into the {context} variable
-    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+    document_prompt = PromptTemplate.from_template(
+        "Source: {source}\nExcerpt:\n{page_content}"
+    )
+    question_answer_chain = create_stuff_documents_chain(
+        llm,
+        qa_prompt,
+        document_prompt=document_prompt,
+        document_separator="\n\n---\n\n",
+    )
 
     # ==========================================
     # STEP 3: Tie it all together

@@ -1,0 +1,107 @@
+{
+  "summary": {
+    "total_queries": 2,
+    "avg_recall_at_k": 0.75,
+    "avg_precision_at_k": 0.75,
+    "avg_mrr": 0.75,
+    "avg_ndcg_before": 0.6934,
+    "avg_ndcg_after": 0.8066,
+    "avg_rank_improvement": 0.5,
+    "avg_semantic_similarity": 1.0,
+    "avg_faithfulness_score": 1.0,
+    "hallucination_rate": 0.0,
+    "avg_tool_usage_score": 1.0,
+    "avg_step_efficiency_score": 1.0,
+    "avg_logical_consistency_score": 1.0
+  },
+  "query_logs": [
+    {
+      "query": "What is OmniRouter?",
+      "ground_truth_answer": "OmniRouter routes LLM requests.",
+      "relevant_doc_ids": [
+        "doc-1",
+        "doc-3"
+      ],
+      "retrieved_docs": [
+        "doc-2",
+        "doc-1"
+      ],
+      "reranked_docs": [
+        "doc-1",
+        "doc-2"
+      ],
+      "final_answer": "OmniRouter routes LLM requests.",
+      "retrieval_metrics": {
+        "recall_at_k": 0.5,
+        "precision_at_k": 0.5,
+        "reciprocal_rank": 0.5,
+        "relevant_hits": 1
+      },
+      "rerank_metrics": {
+        "ndcg_before": 0.38685280723454163,
+        "ndcg_after": 0.6131471927654584,
+        "rank_improvement": 1.0,
+        "moved_relevant_higher": true
+      },
+      "generation_metrics": {
+        "semantic_similarity": 1.0,
+        "faithfulness_score": 1.0,
+        "hallucination_score": 0.0,
+        "hallucination_detected": false,
+        "judge_reasoning": "Answer tokens are mostly supported by retrieved context."
+      },
+      "agent_metrics": {
+        "tool_usage_score": 1.0,
+        "step_efficiency_score": 1.0,
+        "logical_consistency_score": 1.0,
+        "total_steps": 1,
+        "used_tools": [
+          "search_documentation"
+        ]
+      }
+    },
+    {
+      "query": "What storage layer is used?",
+      "ground_truth_answer": "The system uses a FAISS index and relational metadata storage.",
+      "relevant_doc_ids": [
+        "doc-2"
+      ],
+      "retrieved_docs": [
+        "doc-2"
+      ],
+      "reranked_docs": [
+        "doc-2"
+      ],
+      "final_answer": "The system uses a FAISS index and relational metadata storage.",
+      "retrieval_metrics": {
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "relevant_hits": 1
+      },
+      "rerank_metrics": {
+        "ndcg_before": 1.0,
+        "ndcg_after": 1.0,
+        "rank_improvement": 0.0,
+        "moved_relevant_higher": false
+      },
+      "generation_metrics": {
+        "semantic_similarity": 1.0,
+        "faithfulness_score": 1.0,
+        "hallucination_score": 0.0,
+        "hallucination_detected": false,
+        "judge_reasoning": "Answer tokens are mostly supported by retrieved context."
+      },
+      "agent_metrics": {
+        "tool_usage_score": 1.0,
+        "step_efficiency_score": 1.0,
+        "logical_consistency_score": 1.0,
+        "total_steps": 1,
+        "used_tools": [
+          "search_documentation"
+        ]
+      }
+    }
+  ],
+  "report_path": null
+}

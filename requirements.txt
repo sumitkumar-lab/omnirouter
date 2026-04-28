@@ -23,6 +23,7 @@ pypdf
 python-dotenv
 
 fastapi
+python-multipart
 uvicorn
 
 requests

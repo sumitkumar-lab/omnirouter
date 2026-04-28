@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -10,6 +11,8 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from src.rag.settings import RagSettings, get_rag_settings
+
+HEADER_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$", re.MULTILINE)
 
 
 def ensure_data_lake_layout(settings: RagSettings | None = None) -> None:
@@ -75,7 +78,9 @@ def load_documents(
 
     for path in document_paths:
         suffix = path.suffix.lower()
-        if suffix in {".txt", ".md"}:
+        if suffix == ".md":
+            documents.extend(_load_markdown_document(path, settings))
+        elif suffix == ".txt":
             documents.extend(_load_text_document(path, settings))
         elif suffix == ".csv":
             documents.extend(_load_csv_document(path, settings))
@@ -102,7 +107,25 @@ def _relative_source(path: Path, settings: RagSettings) -> str:
 
 def _source_name(path: Path, settings: RagSettings) -> str:
     relative_path = path.resolve().relative_to(settings.data_lake_dir.resolve())
-    return relative_path.parts[0] if relative_path.parts else "root"
+    if len(relative_path.parts) <= 1:
+        return path.stem
+    return relative_path.parts[0]
+
+
+def _base_metadata(path: Path, settings: RagSettings) -> dict[str, str]:
+    return {
+        "source": _relative_source(path, settings),
+        "source_name": _source_name(path, settings),
+        "file_name": path.name,
+        "document_name": path.stem,
+        "file_type": path.suffix.lower().lstrip("."),
+    }
+
+
+def _metadata_with_overrides(path: Path, settings: RagSettings, **overrides: Any) -> dict[str, Any]:
+    metadata = _base_metadata(path, settings)
+    metadata.update(overrides)
+    return metadata
 
 
 def _load_text_document(path: Path, settings: RagSettings) -> list[Document]:
@@ -110,13 +133,19 @@ def _load_text_document(path: Path, settings: RagSettings) -> list[Document]:
     return [
         Document(
             page_content=text,
-            metadata={
-                "source": _relative_source(path, settings),
-                "source_name": _source_name(path, settings),
-                "file_type": path.suffix.lower().lstrip("."),
-            },
+            metadata=_base_metadata(path, settings),
         )
     ]
+
+
+def _load_markdown_document(path: Path, settings: RagSettings) -> list[Document]:
+    markdown = path.read_text(encoding="utf-8", errors="replace")
+    return _section_documents_from_markdown(
+        markdown=markdown,
+        source_path=path,
+        settings=settings,
+        metadata_overrides={"file_type": "md", "content_type": "markdown"},
+    )
 
 
 def _load_csv_document(path: Path, settings: RagSettings) -> list[Document]:
@@ -133,9 +162,7 @@ def _load_csv_document(path: Path, settings: RagSettings) -> list[Document]:
                     Document(
                         page_content="\n".join(f"{key}: {value}" for key, value in row.items()),
                         metadata={
-                            "source": _relative_source(path, settings),
-                            "source_name": _source_name(path, settings),
-                            "file_type": "csv",
+                            **_metadata_with_overrides(path, settings),
                             "row": row_number,
                         },
                     )
@@ -147,9 +174,7 @@ def _load_csv_document(path: Path, settings: RagSettings) -> list[Document]:
                     Document(
                         page_content=", ".join(row),
                         metadata={
-                            "source": _relative_source(path, settings),
-                            "source_name": _source_name(path, settings),
-                            "file_type": "csv",
+                            **_metadata_with_overrides(path, settings),
                             "row": row_number,
                         },
                     )
@@ -164,9 +189,7 @@ def _load_json_document(path: Path, settings: RagSettings) -> list[Document]:
             Document(
                 page_content=json.dumps(item, indent=2, sort_keys=True, ensure_ascii=True),
                 metadata={
-                    "source": _relative_source(path, settings),
-                    "source_name": _source_name(path, settings),
-                    "file_type": "json",
+                    **_metadata_with_overrides(path, settings),
                     "record": index,
                 },
             )
@@ -176,16 +199,26 @@ def _load_json_document(path: Path, settings: RagSettings) -> list[Document]:
     return [
         Document(
             page_content=json.dumps(data, indent=2, sort_keys=True, ensure_ascii=True),
-            metadata={
-                "source": _relative_source(path, settings),
-                "source_name": _source_name(path, settings),
-                "file_type": "json",
-            },
+            metadata=_base_metadata(path, settings),
         )
     ]
 
 
 def _load_pdf_document(path: Path, settings: RagSettings) -> list[Document]:
+    sidecar = _markdown_sidecar_for(path)
+    if sidecar is not None:
+        markdown = sidecar.read_text(encoding="utf-8", errors="replace")
+        return _section_documents_from_markdown(
+            markdown=markdown,
+            source_path=path,
+            settings=settings,
+            metadata_overrides={
+                "file_type": "pdf",
+                "content_type": "ocr_markdown",
+                "ocr_sidecar": _relative_source(sidecar, settings),
+            },
+        )
+
     from pypdf import PdfReader
 
     reader = PdfReader(str(path))
@@ -198,11 +231,83 @@ def _load_pdf_document(path: Path, settings: RagSettings) -> list[Document]:
             Document(
                 page_content=page_text,
                 metadata={
-                    "source": _relative_source(path, settings),
-                    "source_name": _source_name(path, settings),
-                    "file_type": "pdf",
+                    **_metadata_with_overrides(path, settings, content_type="pdf_text"),
                     "page": page_number,
                 },
             )
         )
     return documents
+
+
+def _markdown_sidecar_for(path: Path) -> Path | None:
+    for suffix in (".md", ".markdown"):
+        candidate = path.with_suffix(suffix)
+        if candidate.exists() and candidate.is_file():
+            return candidate
+    return None
+
+
+def _section_documents_from_markdown(
+    markdown: str,
+    source_path: Path,
+    settings: RagSettings,
+    metadata_overrides: dict[str, Any],
+) -> list[Document]:
+    sections = _split_markdown_by_headers(markdown)
+    documents: list[Document] = []
+    for index, section in enumerate(sections, start=1):
+        documents.append(
+            Document(
+                page_content=section["text"],
+                metadata=_metadata_with_overrides(
+                    source_path,
+                    settings,
+                    **metadata_overrides,
+                    chunk_header=section["header"],
+                    section_path=section["section_path"],
+                    section=index,
+                    chunking_strategy="markdown_headers",
+                ),
+            )
+        )
+    return documents
+
+
+def _split_markdown_by_headers(markdown: str) -> list[dict[str, Any]]:
+    matches = list(HEADER_RE.finditer(markdown))
+    if not matches:
+        text = markdown.strip()
+        return [{"header": "Document", "section_path": ["Document"], "text": text}] if text else []
+
+    sections: list[dict[str, Any]] = []
+    stack: list[tuple[int, str]] = []
+    if matches[0].start() > 0 and markdown[: matches[0].start()].strip():
+        sections.append(
+            {
+                "header": "Front Matter",
+                "section_path": ["Front Matter"],
+                "text": markdown[: matches[0].start()].strip(),
+            }
+        )
+
+    for index, match in enumerate(matches):
+        level = len(match.group(1))
+        header = _clean_header(match.group(2))
+        while stack and stack[-1][0] >= level:
+            stack.pop()
+        stack.append((level, header))
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(markdown)
+        text = markdown[match.start() : end].strip()
+        if text:
+            sections.append(
+                {
+                    "header": header,
+                    "section_path": [item[1] for item in stack],
+                    "text": text,
+                }
+            )
+    return sections
+
+
+def _clean_header(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip(" #\t\r\n")

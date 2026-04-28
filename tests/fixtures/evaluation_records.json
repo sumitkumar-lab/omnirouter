@@ -1,0 +1,64 @@
+[
+  {
+    "query": "What is OmniRouter?",
+    "retrieved_docs": [
+      {
+        "doc_id": "doc-2",
+        "content": "Noise document."
+      },
+      {
+        "doc_id": "doc-1",
+        "content": "OmniRouter routes LLM requests."
+      }
+    ],
+    "reranked_docs": [
+      {
+        "doc_id": "doc-1",
+        "content": "OmniRouter routes LLM requests."
+      },
+      {
+        "doc_id": "doc-2",
+        "content": "Noise document."
+      }
+    ],
+    "final_answer": "OmniRouter routes LLM requests.",
+    "retrieved_context": "OmniRouter routes LLM requests.",
+    "trace": [
+      {
+        "step_id": 1,
+        "kind": "tool",
+        "tool_name": "search_documentation",
+        "output_payload": {
+          "hits": 2
+        }
+      }
+    ]
+  },
+  {
+    "query": "What storage layer is used?",
+    "retrieved_docs": [
+      {
+        "doc_id": "doc-2",
+        "content": "The system uses a FAISS index and relational metadata storage."
+      }
+    ],
+    "reranked_docs": [
+      {
+        "doc_id": "doc-2",
+        "content": "The system uses a FAISS index and relational metadata storage."
+      }
+    ],
+    "final_answer": "The system uses a FAISS index and relational metadata storage.",
+    "retrieved_context": "The system uses a FAISS index and relational metadata storage.",
+    "trace": [
+      {
+        "step_id": 1,
+        "kind": "tool",
+        "tool_name": "search_documentation",
+        "output_payload": {
+          "hits": 1
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,4 @@
+OmniRouter knowledge base note:
+The emergency escalation channel for documentation updates is called Project Lantern.
+
+Omnirouter is an router engine.
