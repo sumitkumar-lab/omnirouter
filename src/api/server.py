@@ -73,6 +73,22 @@ async def web_index():
     return {"message": "OmniRouter API is running. Add web/index.html to enable the browser UI."}
 
 
+@app.get("/styles.css")
+async def web_styles():
+    style_path = WEB_DIR / "styles.css"
+    if style_path.exists():
+        return FileResponse(style_path)
+    raise HTTPException(status_code=404, detail="Web stylesheet not found.")
+
+
+@app.get("/app.js")
+async def web_script():
+    script_path = WEB_DIR / "app.js"
+    if script_path.exists():
+        return FileResponse(script_path)
+    raise HTTPException(status_code=404, detail="Web script not found.")
+
+
 @app.post("/chat/stream")
 async def chat_streaming_endpoint(request: ChatRequest):
     return StreamingResponse(

@@ -7,13 +7,21 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <canvas id="agentCanvas" class="agent-canvas" aria-hidden="true"></canvas>
+    <div class="ambient-vignette" aria-hidden="true"></div>
     <main class="shell">
       <section class="topbar">
         <div>
           <p class="eyebrow">OmniRouter</p>
           <h1>AI Research Scientist</h1>
         </div>
-        <div class="status" id="status">Checking API...</div>
+        <div class="status-stack">
+          <div class="status" id="status">Checking API...</div>
+          <div class="agent-state" id="agentState">
+            <span class="agent-state-dot"></span>
+            <span id="agentStateText">Agents warming up</span>
+          </div>
+        </div>
       </section>
 
       <section class="settings">
